@@ -1,4 +1,4 @@
-"""Backward-compatible visualization module."""
+"""Shared utility helpers."""
 
 from src.utils.visualization import plot_missing_values
 
