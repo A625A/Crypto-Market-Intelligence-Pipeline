@@ -1,8 +1,0 @@
-services:
-  app:
-    build: .
-    container_name: data_science_project
-    volumes:
-      - .:/app
-    env_file:
-      - .env
