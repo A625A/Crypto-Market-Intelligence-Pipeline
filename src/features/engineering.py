@@ -1,6 +1,6 @@
 """
 Feature engineering module.
-Engineered features should be saved into data/features/.
+Engineered features should be saved into data/final/.
 """
 
 import pandas as pd

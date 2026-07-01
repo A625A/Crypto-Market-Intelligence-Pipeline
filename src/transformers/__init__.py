@@ -1,4 +1,4 @@
-"""Backward-compatible processing module."""
+"""Data transformation helpers."""
 
 from src.transformers.processing import clean_data
 
