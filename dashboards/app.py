@@ -1,7 +1,7 @@
 """
 Simple Streamlit dashboard starter.
 Run with:
-    streamlit run dashboard/app.py
+    streamlit run dashboards/app.py
 """
 
 import streamlit as st

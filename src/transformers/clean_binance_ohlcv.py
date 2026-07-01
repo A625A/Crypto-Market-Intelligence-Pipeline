@@ -1,5 +1,9 @@
 """
-Clean Binance OHLCV raw data.
+Validate and clean raw Binance OHLCV candle data.
+
+This module converts timestamps and numeric fields, removes incomplete,
+duplicate, missing, and invalid candles, then saves cleaned OHLCV data for
+feature engineering.
 """
 
 import logging
