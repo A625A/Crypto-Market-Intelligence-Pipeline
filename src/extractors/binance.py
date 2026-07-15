@@ -24,6 +24,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RAW_PATH = PROJECT_ROOT / "data/raw/binance_ohlcv_raw.csv"
+
+
 def fetch_binance_ohlcv(symbol, interval="1d", limit=730):
 
     url = "https://api.binance.com/api/v3/klines"
@@ -104,9 +108,8 @@ if __name__ == "__main__":
     logger.info("Dataset shape: %s", ohlcv_df.shape)
     logger.info("Rows per symbol:\n%s", ohlcv_df["symbol"].value_counts())
 
-    output_path = Path("data/raw/binance_ohlcv_raw.csv")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    RAW_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    ohlcv_df.to_csv(output_path, index=False)
+    ohlcv_df.to_csv(RAW_PATH, index=False)
 
-    logger.info("Saved OHLCV data to %s", output_path)
+    logger.info("Saved OHLCV data to %s", RAW_PATH)

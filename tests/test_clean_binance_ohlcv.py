@@ -1,6 +1,19 @@
+from pathlib import Path
+
 import pandas as pd
 
-from src.transformers.clean_binance_ohlcv import clean_binance_ohlcv
+from src.extractors import binance
+from src.transformers import clean_binance_ohlcv as cleaner
+
+
+def test_binance_default_paths_are_anchored_to_project_root():
+    project_root = Path(__file__).resolve().parents[1]
+
+    assert getattr(binance, "RAW_PATH", None) == (
+        project_root / "data/raw/binance_ohlcv_raw.csv"
+    )
+    assert cleaner.RAW_PATH == project_root / "data/raw/binance_ohlcv_raw.csv"
+    assert cleaner.CLEAN_PATH == project_root / "data/processed/binance_ohlcv_clean.csv"
 
 
 def test_clean_binance_ohlcv_normalizes_and_drops_incomplete_candles(tmp_path):
@@ -44,7 +57,7 @@ def test_clean_binance_ohlcv_normalizes_and_drops_incomplete_candles(tmp_path):
 
     raw_data.to_csv(raw_path, index=False)
 
-    cleaned = clean_binance_ohlcv(raw_path, output_path)
+    cleaned = cleaner.clean_binance_ohlcv(raw_path, output_path)
 
     assert len(cleaned) == 1
     assert cleaned.loc[0, "symbol"] == "BTCUSDT"

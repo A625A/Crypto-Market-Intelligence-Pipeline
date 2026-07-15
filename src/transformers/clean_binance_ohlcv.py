@@ -20,8 +20,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-RAW_PATH = Path("data/raw/binance_ohlcv_raw.csv")
-CLEAN_PATH = Path("data/processed/binance_ohlcv_clean.csv")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RAW_PATH = PROJECT_ROOT / "data/raw/binance_ohlcv_raw.csv"
+CLEAN_PATH = PROJECT_ROOT / "data/processed/binance_ohlcv_clean.csv"
+
 
 def clean_binance_ohlcv(raw_path=RAW_PATH, output_path=CLEAN_PATH) -> pd.DataFrame:
     if not raw_path.exists():
