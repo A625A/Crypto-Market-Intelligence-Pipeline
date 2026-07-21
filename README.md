@@ -12,7 +12,7 @@ modeling and backtesting.
 | Binance daily OHLCV | `data/processed/binance_ohlcv_clean.csv` | `data/processed/features/candle_features.parquet` |
 | CoinGecko market chart | `data/processed/coingecko_market_chart_clean.csv` | `data/processed/features/market_features.parquet` |
 | Alternative.me Fear & Greed Index | `data/processed/fear_greed_clean.csv` | `data/processed/features/sentiment_features.parquet` |
-| FRED macro series | `data/processed/fred_macro_clean.csv` | Clean macro inputs for future integration |
+| FRED macro series | `data/processed/fred_macro_clean.csv` | `data/processed/features/macro_features.parquet` |
 
 Each source currently has its own extraction, cleaning, and feature command.
 `run_pipeline.py` is a separate generic CSV pipeline; it does not yet
@@ -73,10 +73,18 @@ extractor. Set `COINGECKO_API_PLAN=pro` when using a Pro key.
 ```bash
 python -m src.extractors.fred_macro
 python -m src.transformers.clean_fred_macro
+python -m src.features.macro_features
 ```
 
 This workflow requires `FRED_API_KEY` and fetches the implemented Treasury,
-Federal Funds, CPI, unemployment, VIX, and trade-weighted dollar series.
+Federal Funds, CPI, unemployment, VIX, and trade-weighted dollar series. The
+feature step preserves those seven macro levels and adds Treasury-rate
+movements, yield-curve signals, Federal Funds changes, VIX and dollar returns
+and rolling z-scores, plus long-horizon CPI and unemployment changes. Every
+non-date output column is lagged by one row to prevent date-t records from
+using date-t macro information. Expected 7-, 30-, 90-, and 365-row warm-up
+values remain missing; they are not backfilled or replaced with zero. Optuna is
+intentionally deferred to a later model-tuning phase.
 
 ### Fear & Greed sentiment features
 
@@ -127,6 +135,7 @@ Focused suites can be run directly, for example:
 ```bash
 python -m pytest -q -p no:cacheprovider tests/test_sentiment_features.py
 python -m pytest -q -p no:cacheprovider tests/test_market_features.py
+python -m pytest -q -p no:cacheprovider tests/features/test_macro_features.py
 ```
 
 ## Project structure
@@ -142,7 +151,7 @@ python -m pytest -q -p no:cacheprovider tests/test_market_features.py
 ├── src/
 │   ├── extractors/          # Binance, CoinGecko, FRED, and sentiment ingestion
 │   ├── transformers/        # Source validation and cleaning
-│   ├── features/            # Candle, market, and sentiment features
+│   ├── features/            # Candle, market, sentiment, and macro features
 │   ├── models/              # Modeling code
 │   ├── backtesting/         # Backtesting code
 │   ├── risk/                # Risk controls
