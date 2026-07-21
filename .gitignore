@@ -17,7 +17,3 @@ models/*
 !models/.gitkeep
 reports/figures/*
 !reports/figures/.gitkeep
-agents
-AGENTS.md
-obsidian_context
-
