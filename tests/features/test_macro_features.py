@@ -1,9 +1,12 @@
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 from src.features import macro_features
+from src.transformers.clean_fred_macro import clean_fred_macro
 
 
 ORIGINAL_LEVEL_COLUMNS = [
@@ -84,6 +87,10 @@ def test_validate_input_sorts_converts_numeric_values_and_preserves_input():
         (
             lambda frame: pd.concat([frame, frame.iloc[[0]]], ignore_index=True),
             "Duplicate dates",
+        ),
+        (
+            lambda frame: frame.drop(index=frame.index[10]),
+            "consecutive daily dates",
         ),
         (
             lambda frame: frame.assign(vix_close="not-numeric"),
@@ -262,6 +269,64 @@ def test_create_macro_features_writes_complete_sorted_one_row_per_date_output(
         expected_unlagged.loc[199, OUTPUT_COLUMNS[1:]],
         check_names=False,
     )
+
+
+def test_released_macro_values_first_appear_on_next_feature_date(tmp_path):
+    raw_path = tmp_path / "fred_macro_raw.json"
+    clean_path = tmp_path / "fred_macro_clean.csv"
+    feature_path = tmp_path / "features" / "macro_features.parquet"
+    released_values = {
+        "DGS10": ("us_10y_treasury_rate", 4.0),
+        "DGS2": ("us_2y_treasury_rate", 4.2),
+        "DFF": ("effective_federal_funds_rate", 5.3),
+        "CPIAUCSL": ("consumer_price_index", 300.0),
+        "UNRATE": ("unemployment_rate", 4.1),
+        "VIXCLS": ("vix_close", 15.0),
+        "DTWEXBGS": ("trade_weighted_us_dollar_index", 120.0),
+    }
+    series = {}
+
+    for series_id, (feature_name, value) in released_values.items():
+        observations = [
+            {
+                "realtime_start": "2024-02-14",
+                "realtime_end": "9999-12-31",
+                "date": "2024-01-01",
+                "value": str(value),
+            }
+        ]
+
+        if series_id == "DGS10":
+            observations.append(
+                {
+                    "realtime_start": "2024-02-15",
+                    "realtime_end": "9999-12-31",
+                    "date": "2024-02-14",
+                    "value": "4.1",
+                }
+            )
+
+        series[series_id] = {
+            "feature_name": feature_name,
+            "data": {"output_type": 4, "observations": observations},
+        }
+
+    raw_path.write_text(json.dumps({"series": series}), encoding="utf-8")
+
+    cleaned = clean_fred_macro(raw_path, clean_path)
+    features = macro_features.create_macro_features(clean_path, feature_path)
+
+    assert cleaned["date"].astype(str).tolist() == ["2024-02-14", "2024-02-15"]
+    assert features.loc[0, OUTPUT_COLUMNS[1:]].isna().all()
+    assert features.loc[1, ORIGINAL_LEVEL_COLUMNS].astype(float).to_dict() == {
+        "us_10y_treasury_rate": 4.0,
+        "us_2y_treasury_rate": 4.2,
+        "effective_federal_funds_rate": 5.3,
+        "consumer_price_index": 300.0,
+        "unemployment_rate": 4.1,
+        "vix_close": 15.0,
+        "trade_weighted_us_dollar_index": 120.0,
+    }
 
 
 def test_validate_output_rejects_missing_columns_and_infinite_values():

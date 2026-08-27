@@ -101,7 +101,13 @@ def validate_input(df: pd.DataFrame) -> pd.DataFrame:
 
         validated[column] = converted
 
-    return validated.sort_values("date").reset_index(drop=True)
+    validated = validated.sort_values("date").reset_index(drop=True)
+    date_deltas = pd.to_datetime(validated["date"]).diff().dropna()
+
+    if not date_deltas.eq(pd.Timedelta(days=1)).all():
+        raise ValueError("Macro input must contain consecutive daily dates.")
+
+    return validated
 
 
 def safe_rolling_zscore(values: pd.Series) -> pd.Series:

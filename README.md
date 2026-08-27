@@ -76,15 +76,18 @@ python -m src.transformers.clean_fred_macro
 python -m src.features.macro_features
 ```
 
-This workflow requires `FRED_API_KEY` and fetches the implemented Treasury,
-Federal Funds, CPI, unemployment, VIX, and trade-weighted dollar series. The
-feature step preserves those seven macro levels and adds Treasury-rate
-movements, yield-curve signals, Federal Funds changes, VIX and dollar returns
-and rolling z-scores, plus long-horizon CPI and unemployment changes. Every
-non-date output column is lagged by one row to prevent date-t records from
-using date-t macro information. Expected 7-, 30-, 90-, and 365-row warm-up
-values remain missing; they are not backfilled or replaced with zero. Optuna is
-intentionally deferred to a later model-tuning phase.
+This workflow requires `FRED_API_KEY` and fetches initial-release vintages for
+the implemented Treasury, Federal Funds, CPI, unemployment, VIX, and
+trade-weighted dollar series. Cleaning aligns each value to its FRED
+`realtime_start` availability date and forward-fills only after that date, so
+later revisions and pre-release monthly values are not exposed to historical
+rows. The feature step preserves those seven macro levels and adds
+Treasury-rate movements, yield-curve signals, Federal Funds changes, VIX and
+dollar returns and rolling z-scores, plus long-horizon CPI and unemployment
+changes. Every non-date output column is then lagged by one more row to prevent
+date-t records from using date-t macro information. Expected 7-, 30-, 90-, and
+365-row warm-up values remain missing; they are not backfilled or replaced with
+zero. Optuna is intentionally deferred to a later model-tuning phase.
 
 ### Fear & Greed sentiment features
 

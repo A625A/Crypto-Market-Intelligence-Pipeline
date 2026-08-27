@@ -7,8 +7,11 @@ from src.extractors import fred_macro
 def test_fetch_fred_series_observations_calls_fred_api(monkeypatch, tmp_path):
     captured = {}
     expected_data = {
+        "output_type": 4,
         "observations": [
             {
+                "realtime_start": "2024-01-02",
+                "realtime_end": "9999-12-31",
                 "date": "2024-01-01",
                 "value": "4.05",
             }
@@ -46,6 +49,9 @@ def test_fetch_fred_series_observations_calls_fred_api(monkeypatch, tmp_path):
         "file_type": "json",
         "observation_start": "2024-01-01",
         "observation_end": "2024-01-31",
+        "realtime_start": "1776-07-04",
+        "realtime_end": "9999-12-31",
+        "output_type": 4,
     }
     assert captured["timeout"] == 15
 
