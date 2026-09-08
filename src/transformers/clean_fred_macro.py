@@ -1,10 +1,9 @@
 """
 Validate and clean raw FRED macroeconomic data.
 
-This module pivots selected FRED series into daily macro feature columns,
-forward-fills lower-frequency observations, applies lagging to delayed-release
-monthly macro indicators, and saves analysis-ready macro features for merging
-with crypto market data.
+This module pivots initial-release FRED series onto the dates when their values
+first became available, forward-fills lower-frequency observations, and saves
+analysis-ready macro features for merging with crypto market data.
 """
 
 import json
@@ -24,14 +23,6 @@ logger = logging.getLogger(__name__)
 
 RAW_PATH = Path("data/raw/fred_macro_raw.json")
 CLEAN_PATH = Path("data/processed/fred_macro_clean.csv")
-
-
-LAGGED_MACRO_COLUMNS = [
-    "consumer_price_index",
-    "unemployment_rate",
-]
-
-LAG_DAYS = 30
 
 
 def clean_fred_macro(
@@ -65,7 +56,16 @@ def clean_fred_macro(
         feature_names.add(feature_name)
         output_columns.append(feature_name)
 
-        observations = payload.get("data", {}).get("observations", [])
+        response_data = payload.get("data", {})
+
+        if str(response_data.get("output_type")) != "4":
+            raise ValueError(
+                f"Raw data for {series_id} is not initial-release FRED "
+                "observations. Re-run src.extractors.fred_macro before "
+                "cleaning."
+            )
+
+        observations = response_data.get("observations", [])
 
         if not observations:
             raise ValueError(f"Missing FRED observations for {series_id}")
@@ -74,6 +74,7 @@ def clean_fred_macro(
 
         required_columns = [
             "date",
+            "realtime_start",
             "value",
         ]
 
@@ -87,8 +88,14 @@ def clean_fred_macro(
 
         series_df = series_df[required_columns].copy()
 
-        series_df["date"] = pd.to_datetime(
+        series_df["observation_date"] = pd.to_datetime(
             series_df["date"],
+            utc=True,
+            errors="coerce",
+        ).dt.date
+
+        series_df["date"] = pd.to_datetime(
+            series_df["realtime_start"],
             utc=True,
             errors="coerce",
         ).dt.date
@@ -98,11 +105,13 @@ def clean_fred_macro(
             errors="coerce",
         )
 
-        series_df = series_df[["date", feature_name]]
+        series_df = series_df[["date", "observation_date", feature_name]]
 
         before_dropna = len(series_df)
 
-        series_df = series_df.dropna(subset=["date", feature_name])
+        series_df = series_df.dropna(
+            subset=["date", "observation_date", feature_name]
+        )
 
         logger.info(
             "Dropped %s missing FRED observations for %s",
@@ -117,13 +126,14 @@ def clean_fred_macro(
 
         if duplicate_count:
             logger.warning(
-                "Dropping %s duplicate FRED date rows for %s",
+                "Dropping %s superseded observations released together for %s",
                 duplicate_count,
                 series_id,
             )
 
+        series_df = series_df.sort_values(["date", "observation_date"])
         series_df = series_df.drop_duplicates(subset=["date"], keep="last")
-        series_df = series_df.sort_values("date").reset_index(drop=True)
+        series_df = series_df[["date", feature_name]].reset_index(drop=True)
 
         cleaned_frames.append(series_df)
 
@@ -134,7 +144,7 @@ def clean_fred_macro(
 
     original_rows = len(df)
 
-    logger.info("Loaded raw FRED macro data: %s observation dates", original_rows)
+    logger.info("Loaded raw FRED macro data: %s release dates", original_rows)
 
     today_utc = pd.Timestamp.now(tz="UTC").date()
 
@@ -163,15 +173,6 @@ def clean_fred_macro(
     df = df.set_index("date").reindex(daily_index).ffill()
     df.index.name = "date"
     df = df.reset_index()
-
-    for column in LAGGED_MACRO_COLUMNS:
-        if column in df.columns:
-            df[column] = df[column].shift(LAG_DAYS)
-            logger.info(
-                "Applied %s-day lag to delayed macro feature: %s",
-                LAG_DAYS,
-                column,
-            )
 
     df["date"] = df["date"].dt.date
 

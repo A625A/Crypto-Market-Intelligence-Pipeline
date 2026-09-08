@@ -1,8 +1,9 @@
 """
 Fetch macroeconomic data from FRED.
 
-This extractor collects selected macro indicators for the last two years so
-they can later be cleaned, forward-filled, and merged with daily crypto data.
+This extractor collects initial-release vintages of selected macro indicators
+for the last two years so they can later be aligned by availability date,
+forward-filled, and merged with daily crypto data without revision leakage.
 """
 
 import json
@@ -126,6 +127,9 @@ def fetch_fred_series_observations(
         "file_type": "json",
         "observation_start": observation_start,
         "observation_end": observation_end,
+        "realtime_start": "1776-07-04",
+        "realtime_end": "9999-12-31",
+        "output_type": 4,
     }
 
     logger.info(
