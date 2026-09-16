@@ -1,5 +1,16 @@
 # Crypto Market Intelligence Pipeline
 
+> **Work in progress** — a reproducible multi-source Python data pipeline for cryptocurrency market research.
+
+The project collects market, macroeconomic, and sentiment data for BTCUSDT, ETHUSDT, and SOLUSDT, validates and cleans the raw inputs, and creates feature tables for later modeling and backtesting.
+
+### Why this project
+
+The goal is to build a research workflow that combines different types of market information without introducing look-ahead bias into historical analysis. The current implementation focuses on reliable ingestion, cleaning, validation, and feature engineering before moving into modeling and backtesting.
+
+### Tech stack
+
+`Python` · `Pandas` · `NumPy` · `APIs` · `Parquet` · `Docker` · `Pytest`
 A reproducible Python data pipeline for daily cryptocurrency research. It
 collects market, macroeconomic, and sentiment data for `BTCUSDT`, `ETHUSDT`,
 and `SOLUSDT`, validates the raw inputs, and creates feature tables for later
