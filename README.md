@@ -1,39 +1,45 @@
 # Crypto Market Intelligence Pipeline
 
-> **Work in progress** — a reproducible multi-source Python data pipeline for cryptocurrency market research.
+> **Work in progress**
 
-The project collects market, macroeconomic, and sentiment data for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT`, validates and cleans the raw inputs, and creates feature tables for later modeling and backtesting.
+A Python data pipeline for cryptocurrency research.
 
-## Why This Project
+It currently pulls market, macroeconomic, and sentiment data for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT`, cleans and validates the data, and creates separate feature tables.
 
-Crypto markets are influenced by more than price data alone.
-
-The goal of this project is to build a research pipeline that combines several types of information while maintaining proper time alignment and avoiding look-ahead bias in historical analysis.
-
-The current implementation focuses on the data foundation:
-
-**ingestion → validation → cleaning → feature engineering**
-
-Modeling and backtesting will be added after the underlying datasets can be reliably combined into a model-ready dataset.
-
-## Tech Stack
-
-`Python` · `Pandas` · `NumPy` · `REST APIs` · `Parquet` · `Docker` · `Pytest`
+I started this project to get more experience working with multiple data sources and time-series data before moving into modeling and backtesting.
 
 ## Data Sources
 
-|Source|Data|Current Output|
-|---|---|---|
-|Binance|Daily OHLCV market data|Candle features|
-|CoinGecko|Cryptocurrency market data|Market features|
-|FRED|Macroeconomic indicators|Macro features|
-|Alternative.me|Fear & Greed Index|Sentiment features|
+|Source|Data|
+|---|---|
+|Binance|Daily OHLCV|
+|CoinGecko|Crypto market data|
+|FRED|Macroeconomic data|
+|Alternative.me|Fear & Greed Index|
 
-## What Is Implemented
+## Current Pipeline
 
-### Binance
+Each source currently follows its own workflow:
 
-The Binance workflow extracts daily OHLCV data for:
+```text
+API
+ ↓
+Extraction
+ ↓
+Raw data
+ ↓
+Cleaning / validation
+ ↓
+Feature engineering
+ ↓
+Feature table
+```
+
+The feature tables are not yet merged into one final modeling dataset.
+
+## Binance
+
+The Binance pipeline collects daily OHLCV data for:
 
 - BTCUSDT
     
@@ -42,106 +48,98 @@ The Binance workflow extracts daily OHLCV data for:
 - SOLUSDT
     
 
-It validates and cleans the observations before generating candle and price-related features.
-
-Output:
+Outputs:
 
 ```text
 data/processed/binance_ohlcv_clean.csv
 data/processed/features/candle_features.parquet
 ```
 
-### CoinGecko
+## CoinGecko
 
-CoinGecko provides additional cryptocurrency market information used to generate market-level features.
+CoinGecko is used for additional crypto market data.
 
-Output:
+Outputs:
 
 ```text
 data/processed/coingecko_market_chart_clean.csv
 data/processed/features/market_features.parquet
 ```
 
-### FRED Macroeconomic Data
+## FRED
 
-The macroeconomic workflow retrieves economic and financial indicators including Treasury rates, Federal Funds data, inflation, unemployment, volatility, and dollar-related series.
+The macro pipeline includes data such as:
 
-The pipeline uses FRED real-time availability information to reduce look-ahead bias.
-
-Values are aligned according to when the information would historically have been available rather than simply using the latest revised observations.
-
-Output:
-
-```text
-data/processed/fred_macro_clean.csv
-data/processed/features/macro_features.parquet
-```
-
-The feature workflow includes transformations such as:
-
-- Treasury-rate movements
+- Treasury rates
     
-- Yield-curve signals
+- Federal Funds rate
     
-- Federal Funds changes
+- CPI
     
-- VIX returns and rolling statistics
+- Unemployment
     
-- Dollar-index returns and rolling statistics
+- VIX
+    
+- Trade-weighted dollar data
+    
+
+One thing I wanted to be careful with here was **look-ahead bias**.
+
+The pipeline uses FRED availability dates so historical rows do not automatically receive information that would only have become available later.
+
+The feature step also includes things such as:
+
+- Rate changes
+    
+- Yield-curve features
+    
+- VIX returns
+    
+- Dollar returns
+    
+- Rolling z-scores
     
 - CPI changes
     
 - Unemployment changes
     
 
-Features requiring historical windows intentionally preserve missing values during their warm-up period.
+Outputs:
 
-### Market Sentiment
+```text
+data/processed/fred_macro_clean.csv
+data/processed/features/macro_features.parquet
+```
 
-The sentiment workflow retrieves the Alternative.me Fear & Greed Index.
+## Sentiment
 
-Sentiment data is aligned by UTC date with the market-data grid and is treated as a market-wide signal rather than a coin-specific metric.
+The project also uses the Alternative.me Fear & Greed Index.
 
-Output:
+The sentiment data is aligned by date with the market data and treated as a market-wide feature.
+
+Outputs:
 
 ```text
 data/processed/fear_greed_clean.csv
 data/processed/features/sentiment_features.parquet
 ```
 
-## Current Architecture
+## Tech Stack
 
-```text
-External APIs
-     │
-     ▼
-Data Extraction
-     │
-     ▼
-Raw Data
-     │
-     ▼
-Validation & Cleaning
-     │
-     ▼
-Processed Data
-     │
-     ▼
-Feature Engineering
-     │
-     ▼
-Feature Tables
-     │
-     ▼
-Future unified model-ready dataset
-     │
-     ├── Modeling
-     └── Backtesting
-```
-
-Each source currently has its own extraction, cleaning, and feature workflow.
-
-A single top-level orchestration process that merges all source-specific feature tables has not yet been implemented.
+- Python
+    
+- Pandas
+    
+- NumPy
+    
+- REST APIs
+    
+- Parquet
+    
+- Docker
+    
+- Pytest
+    
 
 ## Setup
 
@@ -158,15 +156,7 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-On Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-## Environment Variables
-
-Add API credentials to `.env` when required:
+Add the required API keys to `.env`:
 
 ```dotenv
 FRED_API_KEY=your_fred_api_key
@@ -174,13 +164,7 @@ COINGECKO_API_KEY=your_coingecko_api_key
 COINGECKO_API_PLAN=demo
 ```
 
-Binance and Alternative.me do not require API keys for the currently implemented endpoints.
-
-Never commit `.env`.
-
 ## Running the Pipelines
-
-Run all commands from the repository root.
 
 ### Binance
 
@@ -214,50 +198,11 @@ python -m src.transformers.clean_greed_fear
 python -m src.features.sentiment_features
 ```
 
-## Generic CSV Pipeline
-
-The project also includes a generic CSV processing workflow.
-
-Place a CSV file inside:
-
-```text
-data/raw/
-```
-
-Then run:
-
-```bash
-python run_pipeline.py input.csv
-```
-
-Custom output names can also be provided:
-
-```bash
-python run_pipeline.py input.csv \
-  --processed-filename cleaned.csv \
-  --final-filename features.csv
-```
-
-## Testing
-
-Install Pytest if it is not already installed:
+## Tests
 
 ```bash
 python -m pip install pytest
-```
-
-Run the test suite:
-
-```bash
 python -m pytest -q -p no:cacheprovider
-```
-
-Individual feature suites can also be executed:
-
-```bash
-python -m pytest -q -p no:cacheprovider tests/test_sentiment_features.py
-python -m pytest -q -p no:cacheprovider tests/test_market_features.py
-python -m pytest -q -p no:cacheprovider tests/features/test_macro_features.py
 ```
 
 ## Project Structure
@@ -284,60 +229,21 @@ python -m pytest -q -p no:cacheprovider tests/features/test_macro_features.py
 └── requirements.txt
 ```
 
-## Current Limitations
+## Next Steps
 
-This repository is actively being developed.
+The main things I still want to add are:
 
-The current version does **not** yet provide:
-
-- A single orchestration command for every data source
+- Merge the feature tables
     
-- A unified model-ready feature table
+- Add one orchestration workflow
     
-- Walk-forward model validation
+- Build the first modeling experiments
     
-- Production scheduling
+- Add walk-forward validation
     
-- Live trading execution
+- Add backtesting
     
-- A completed production dashboard
+- Continue the dashboard
     
 
-The project is intended for research and education and is not financial advice.
-
-## Roadmap
-
-Planned next steps:
-
-1. Merge source-specific feature tables into one time-aligned dataset.
-    
-2. Add automated pipeline orchestration.
-    
-3. Implement walk-forward model validation.
-    
-4. Build model comparison and tuning workflows.
-    
-5. Add backtesting.
-    
-6. Expand the dashboard after the research pipeline is stable.
-    
-
-## What I Am Learning
-
-This project is being used to practice and strengthen skills in:
-
-- Multi-source data ingestion
-    
-- Data validation
-    
-- Time-series data alignment
-    
-- Feature engineering
-    
-- Avoiding look-ahead bias
-    
-- Reproducible data workflows
-    
-- Testing data transformations
-    
-- Containerized development
+There is no live trading functionality at this point.
