@@ -1,19 +1,24 @@
+# Local secrets and environments
 .env
-__pycache__/
-*.pyc
-data/raw/*
-!data/raw/.gitkeep
-data/processed/*
-!data/processed/.gitkeep
-data/final/*
-!data/final/.gitkeep
-.ipynb_checkpoints/
-venv/
+.env.*
+!.env.example
 .venv/
+venv/
+
+# Generated data and outputs
+/data/
+/models/
+/logs/
+/reports/figures/
 *.duckdb
-logs/*
-!logs/.gitkeep
-models/*
-!models/.gitkeep
-reports/figures/*
-!reports/figures/.gitkeep
+
+# Python and notebook caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# OS and editor metadata
+.DS_Store
+.idea/
+.vscode/

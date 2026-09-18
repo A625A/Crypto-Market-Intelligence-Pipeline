@@ -42,11 +42,8 @@ The feature tables are not yet merged into one final modeling dataset.
 The Binance pipeline collects daily OHLCV data for:
 
 - BTCUSDT
-    
 - ETHUSDT
-    
 - SOLUSDT
-    
 
 Outputs:
 
@@ -71,17 +68,11 @@ data/processed/features/market_features.parquet
 The macro pipeline includes data such as:
 
 - Treasury rates
-    
 - Federal Funds rate
-    
 - CPI
-    
 - Unemployment
-    
 - VIX
-    
 - Trade-weighted dollar data
-    
 
 One thing I wanted to be careful with here was **look-ahead bias**.
 
@@ -90,19 +81,12 @@ The pipeline uses FRED availability dates so historical rows do not automaticall
 The feature step also includes things such as:
 
 - Rate changes
-    
 - Yield-curve features
-    
 - VIX returns
-    
 - Dollar returns
-    
 - Rolling z-scores
-    
 - CPI changes
-    
 - Unemployment changes
-    
 
 Outputs:
 
@@ -127,29 +111,21 @@ data/processed/features/sentiment_features.parquet
 ## Tech Stack
 
 - Python
-    
 - Pandas
-    
 - NumPy
-    
 - REST APIs
-    
 - Parquet
-    
-- Docker
-    
 - Pytest
-    
 
 ## Setup
 
-Python 3.11 is recommended.
+Python 3.13 is used for local verification.
 
 ```bash
 git clone https://github.com/A625A/Crypto-Market-Intelligence-Pipeline.git
 cd Crypto-Market-Intelligence-Pipeline
 
-python3.11 -m venv .venv
+python3.13 -m venv .venv
 source .venv/bin/activate
 
 python -m pip install -r requirements.txt
@@ -201,7 +177,7 @@ python -m src.features.sentiment_features
 ## Tests
 
 ```bash
-python -m pip install pytest
+python -m pip install -r requirements-dev.txt
 python -m pytest -q -p no:cacheprovider
 ```
 
@@ -209,41 +185,33 @@ python -m pytest -q -p no:cacheprovider
 
 ```text
 .
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── final/
-├── dashboards/
-├── notebooks/
 ├── src/
 │   ├── extractors/
 │   ├── transformers/
-│   ├── features/
-│   ├── models/
-│   ├── backtesting/
-│   ├── risk/
-│   └── trading/
+│   └── features/
 ├── tests/
-├── run_pipeline.py
-├── Dockerfile
-└── requirements.txt
+├── .env.example
+├── requirements.txt
+├── requirements-dev.txt
+└── README.md
 ```
+
+Run the commands above from the repository root. Extractors and feature builders
+create their output directories under `data/` when needed; generated datasets
+are ignored by Git.
+
+Each source is run separately. There is no combined pipeline runner, trained
+model, backtester, or dashboard yet.
 
 ## Next Steps
 
 The main things I still want to add are:
 
 - Merge the feature tables
-    
 - Add one orchestration workflow
-    
 - Build the first modeling experiments
-    
 - Add walk-forward validation
-    
 - Add backtesting
-    
-- Continue the dashboard
-    
+- Build a dashboard
 
 There is no live trading functionality at this point.
