@@ -4,7 +4,7 @@
 
 A Python data pipeline for cryptocurrency research.
 
-It currently pulls market, macroeconomic, and sentiment data for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT`, cleans and validates the data, and creates separate feature tables.
+It currently pulls market, macroeconomic, and sentiment data for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT`, cleans and validates the data, and combines feature tables into a daily modeling dataset.
 
 I started this project to get more experience working with multiple data sources and time-series data before moving into modeling and backtesting.
 
@@ -33,9 +33,11 @@ Cleaning / validation
 Feature engineering
  ↓
 Feature table
+ ↓
+Combined modeling dataset
 ```
 
-The feature tables are not yet merged into one final modeling dataset.
+The combined dataset aligns the four feature tables on UTC date and asset.
 
 ## Binance
 
@@ -174,12 +176,81 @@ python -m src.transformers.clean_greed_fear
 python -m src.features.sentiment_features
 ```
 
+### Combined modeling dataset
+
+After generating all four feature tables:
+
+```bash
+python -m src.features.modeling_dataset
+# Optional strict return threshold: 0.02 means greater than 2%.
+python -m src.features.modeling_dataset --return-threshold 0.02
+```
+
+Output: `data/processed/modeling_dataset.parquet`. Use `--output PATH` to save
+elsewhere. The Python `create_modeling_dataset(...)` function also accepts paths
+for all four feature tables, cleaned Binance prices, and the raw FRED JSON.
+Default paths are anchored to the repository root.
+
+Each row is keyed by `symbol` and `date` (a timezone-naive timestamp representing
+a UTC calendar date). Forecasts are made **after that day's candle closes**.
+The clean Binance price grid determines the rows; candle, market, and sentiment
+features join by asset and date, while global macro features join by date.
+Joins validate cardinality and reject duplicate normalized keys, unknown assets,
+conflicting feature names, invalid values, and stale candle closing prices.
+Internal gaps in an asset's price history or the daily macro table are errors;
+different asset listing dates are allowed. Current-day candles are rejected.
+
+Macro provenance is checked on every file build: the builder replays the existing
+cleaner and feature calculations from raw FRED **initial-release** observations
+(`output_type=4`), using `realtime_start` as the availability date. The saved macro
+table must match that history with its existing one-calendar-day lag. A release
+on day `t` first enters features on `t+1`; the join applies no additional lag.
+Revised/current-vintage raw data and stale or unlagged macro tables fail before
+the output is replaced. `macro_information_date` records the information cutoff
+for the joined macro row, not the observation month or each series' release date.
+The lower-level `build_modeling_dataset(...)` accepts in-memory frames and assumes
+the caller has already verified macro provenance; use the file builder for the
+full check.
+
+Missing source coverage and rolling warm-up values stay null. There is no
+backfill, interpolation, zero fill, or imputation across assets. Macro values are
+carried forward only by the upstream release-aware cleaner; the combined step
+does not extrapolate beyond the macro table. `has_candle_features`,
+`has_market_features`, `has_macro_features`, and `has_sentiment_features` indicate
+whether a source row matched (not whether all its values are populated).
+`missing_feature_count` counts null numeric predictors, excluding targets and
+audit fields. The existing candle builder omits warm-up and final-day rows, so
+those grid rows retain null candle features here.
+
+Targets are rebuilt from cleaned prices using an exact same-asset `date + 1 day`
+lookup; legacy future-price columns from the candle table are discarded:
+
+| Column | Definition |
+|---|---|
+| `target_return_next_1d` | `(close[t+1] - close[t]) / close[t]` |
+| `target_direction_next_1d` | `1` when next-day return is positive, otherwise `0` |
+| `target_above_threshold_next_1d` | `1` when next-day return is strictly above the threshold (default `0.01`), otherwise `0` |
+
+Returns are fractions, not percentages. Binary targets use nullable integers;
+all targets remain null where the next day's close is unavailable. The threshold
+and timing convention are stored in the Parquet pandas metadata (`df.attrs`).
+The output retains both historical training candidates and final unlabeled rows.
+For training, select one target, remove rows missing that label, and **exclude
+every `target_*` column from predictors**. Split chronologically before fitting
+any imputer or scaler; also keep training labels' next-day dates before the
+validation boundary. Retaining missing features avoids silently discarding
+history when sources have different coverage.
+
 ## Tests
 
 ```bash
 python -m pip install -r requirements-dev.txt
 python -m pytest -q -p no:cacheprovider
 ```
+
+Combined-dataset tests cover duplicate keys, missing dates and source coverage,
+asset isolation, join cardinality, exact targets, null final labels, future-price
+perturbations, release-date leakage, raw FRED provenance, and Parquet output.
 
 ## Project Structure
 
@@ -207,7 +278,6 @@ model, backtester, or dashboard yet.
 
 The main things I still want to add are:
 
-- Merge the feature tables
 - Add one orchestration workflow
 - Build the first modeling experiments
 - Add walk-forward validation
