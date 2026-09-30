@@ -2,7 +2,7 @@
 
 > **Work in progress**
 
-A Python data pipeline for cryptocurrency research.
+A Python data pipeline for cryptocurrency research
 
 It currently pulls market, macroeconomic, and sentiment data for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT`, cleans and validates the data, and combines feature tables into a daily modeling dataset.
 
