@@ -1,0 +1,172 @@
+{
+  "collections": [
+    {
+      "run_id": "2026-09-29-BTCUSDT",
+      "symbol": "BTCUSDT",
+      "query": "BTCUSDT",
+      "window_start": "2026-09-28T23:00:00+00:00",
+      "window_end": "2026-09-29T23:00:00+00:00",
+      "retrieved_at": "2026-09-29T22:00:00Z",
+      "status": "success",
+      "response": {
+        "status": "ok",
+        "totalResults": 2,
+        "articles": [
+          {
+            "title": "Bitcoin Ethereum and Solana companies report strong profit growth.",
+            "description": null,
+            "url": "https://example.com/a",
+            "source": {
+              "id": null,
+              "name": "Example"
+            },
+            "publishedAt": "2026-09-28T12:00:00Z"
+          },
+          {
+            "title": "Bitcoin Ethereum and Solana companies report strong profit growth.",
+            "description": null,
+            "url": "https://example.com/a",
+            "source": {
+              "id": null,
+              "name": "Example"
+            },
+            "publishedAt": "2026-09-28T12:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "run_id": "2026-09-29-ETHUSDT",
+      "symbol": "ETHUSDT",
+      "query": "ETHUSDT",
+      "window_start": "2026-09-28T23:00:00+00:00",
+      "window_end": "2026-09-29T23:00:00+00:00",
+      "retrieved_at": "2026-09-29T22:00:00Z",
+      "status": "success",
+      "response": {
+        "status": "ok",
+        "totalResults": 2,
+        "articles": [
+          {
+            "title": "Bitcoin Ethereum and Solana companies report strong profit growth.",
+            "description": null,
+            "url": "https://example.com/a",
+            "source": {
+              "id": null,
+              "name": "Example"
+            },
+            "publishedAt": "2026-09-28T12:00:00Z"
+          },
+          {
+            "title": "Bitcoin Ethereum and Solana companies report strong profit growth.",
+            "description": null,
+            "url": "https://example.com/a",
+            "source": {
+              "id": null,
+              "name": "Example"
+            },
+            "publishedAt": "2026-09-28T12:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "run_id": "2026-09-29-SOLUSDT",
+      "symbol": "SOLUSDT",
+      "query": "SOLUSDT",
+      "window_start": "2026-09-28T23:00:00+00:00",
+      "window_end": "2026-09-29T23:00:00+00:00",
+      "retrieved_at": "2026-09-29T22:00:00Z",
+      "status": "success",
+      "response": {
+        "status": "ok",
+        "totalResults": 2,
+        "articles": [
+          {
+            "title": "Bitcoin Ethereum and Solana companies report strong profit growth.",
+            "description": null,
+            "url": "https://example.com/a",
+            "source": {
+              "id": null,
+              "name": "Example"
+            },
+            "publishedAt": "2026-09-28T12:00:00Z"
+          },
+          {
+            "title": "Bitcoin Ethereum and Solana companies report strong profit growth.",
+            "description": null,
+            "url": "https://example.com/a",
+            "source": {
+              "id": null,
+              "name": "Example"
+            },
+            "publishedAt": "2026-09-28T12:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "run_id": "2026-09-30-BTCUSDT",
+      "symbol": "BTCUSDT",
+      "query": "BTCUSDT",
+      "window_start": "2026-09-29T23:00:00+00:00",
+      "window_end": "2026-09-30T23:00:00+00:00",
+      "retrieved_at": "2026-09-30T22:00:00Z",
+      "status": "success",
+      "response": {
+        "status": "ok",
+        "totalResults": 2,
+        "articles": [
+          {
+            "title": "Bitcoin Ethereum and Solana companies report strong profit growth.",
+            "description": "Bitcoin company reports severe losses.",
+            "url": "https://example.com/a",
+            "source": {
+              "id": null,
+              "name": "Example"
+            },
+            "publishedAt": "2026-09-28T12:00:00Z"
+          },
+          {
+            "title": "Bitcoin company reports severe losses.",
+            "description": "Bitcoin demand declines.",
+            "url": "https://second.example/new",
+            "source": {
+              "id": null,
+              "name": "Example"
+            },
+            "publishedAt": "2026-09-28T12:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "run_id": "2026-09-30-ETHUSDT",
+      "symbol": "ETHUSDT",
+      "query": "ETHUSDT",
+      "window_start": "2026-09-29T23:00:00+00:00",
+      "window_end": "2026-09-30T23:00:00+00:00",
+      "retrieved_at": "2026-09-30T22:00:00Z",
+      "status": "success",
+      "response": {
+        "status": "ok",
+        "totalResults": 0,
+        "articles": []
+      }
+    },
+    {
+      "run_id": "2026-09-30-SOLUSDT",
+      "symbol": "SOLUSDT",
+      "query": "SOLUSDT",
+      "window_start": "2026-09-29T23:00:00+00:00",
+      "window_end": "2026-09-30T23:00:00+00:00",
+      "retrieved_at": "2026-09-30T22:00:00Z",
+      "status": "failed",
+      "response": {
+        "status": "ok",
+        "totalResults": 0,
+        "articles": []
+      }
+    }
+  ]
+}

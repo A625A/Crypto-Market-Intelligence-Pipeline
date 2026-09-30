@@ -110,6 +110,125 @@ data/processed/fear_greed_clean.csv
 data/processed/features/sentiment_features.parquet
 ```
 
+## NewsAPI cleanup and daily features
+
+The NewsAPI transformation produces standalone daily features for BTCUSDT,
+ETHUSDT, and SOLUSDT. Activity and financial tone are separate columns. News
+is not yet joined into the combined modeling dataset, and no predictive model
+is trained by this step.
+
+Install the optional local sentiment runtime:
+
+```bash
+python -m pip install -r requirements-news.txt
+```
+
+The cleaner accepts saved raw NewsAPI responses; it makes no API calls. Existing
+legacy snapshots can be cleaned for exploration, but their absent retrieval
+metadata cannot establish historical predictive eligibility.
+
+For predictive features, provide a JSON object with a `collections` list. Each
+entry describes one asset's **entire configured query scan**, with pages already
+combined. The included synthetic example is
+`tests/fixtures/newsapi/recorded_collections.json`. Required fields are:
+
+| Field | Meaning |
+|---|---|
+| `run_id`, `symbol`, `query` | Recorded run, BTCUSDT/ETHUSDT/SOLUSDT query, and query text/version |
+| `window_start`, `window_end` | Intended availability window, with explicit UTC offsets; normally consecutive 23:00 cutoffs |
+| `retrieved_at` | Actual timestamp at which this response was successfully retrieved and preserved, not its scheduled start |
+| `status` | `success`, `incomplete`, or `failed` for the whole configured scan |
+| `response` | NewsAPI `status`, `totalResults`, and combined `articles` |
+
+These availability windows are not NewsAPI publication-date search bounds.
+The producer must supply truthful scan evidence. The transformer validates
+required metadata and flags API errors, truncated result counts, and malformed
+articles; it cannot independently prove that a producer executed every query.
+A successful scan means coverage of the configured query, not all internet news.
+
+Run the included example (synthetic news, no API credentials):
+
+```bash
+python -m src.transformers.clean_newsapi \
+  --input tests/fixtures/newsapi/recorded_collections.json \
+  --output-dir data/processed/newsapi-demo
+python -m src.features.news_features \
+  --clean-dir data/processed/newsapi-demo \
+  --output-dir data/processed/features/newsapi-demo \
+  --start-date 2026-09-29 --end-date 2026-09-30
+```
+
+The cleaner's default input is `data/raw/newsapi_raw.json`; repeat `--input` to
+supply the complete saved snapshot history. Do not process only the newest
+snapshot when reconstructing first retrieval. The default cleaned directory is
+`data/processed/newsapi`; the default feature directory is
+`data/processed/features/newsapi`. Explicit paths override these repo-root defaults.
+
+The first scoring run downloads the public FinBERT checkpoint into the ignored
+`models/news-finbert` directory. Subsequent runs can use `--offline-model` to
+require cached weights. Inference runs locally on CPU; article text is not sent
+to a hosted model. Both tokenizer and model are pinned to revision
+`4556d13015211d73dccd3fdd39d39232506f3e43` of `ProsusAI/finbert`.
+
+**Timing:** row t uses articles first retrieved and saved in
+`(23:00 UTC on t-1, 23:00 UTC on t]`. A record saved at 23:00:01 on t belongs to
+t+1's window. Starting collection at 23:00 ordinarily makes its results too
+late for that day's cutoff. `--cutoff-hour` changes the source-specific cutoff;
+collection metadata must describe the matching windows. The existing market
+prediction target remains close[t+1]/close[t]-1 and is not modified here.
+
+**Cleaning:** normalize aware timestamps to UTC, require a valid publication
+time, remove URL fragments and common tracking parameters, and deduplicate
+article versions. Keep text revisions and first-observed asset associations.
+Direct asset names are matched case-insensitively; bare uppercase tickers require
+crypto context in the title or description. These conservative English-text
+rules are inspectable heuristics, not a trained relevance classifier. Legitimate
+multi-asset articles appear once per relevant asset; query membership alone is
+not relevance evidence. Separate publishers remain separate articles.
+
+**Feature outputs:**
+
+- Cleaned `articles.parquet`: article/version/asset identity, source, URL, title,
+  description, `published_at`, version `retrieved_at`, and asset association's
+  `first_retrieved_at`.
+- `collections.parquet` and `rejected.parquet`: scan evidence and rejected raw
+  records with reasons.
+- `news_features.parquet`: unique date/asset rows with the cutoff, coverage flag,
+  article/source counts, `estimated_distinct_story_count`, repeated coverage,
+  mean age and time since first retrieval in hours, and separate mean positive,
+  negative, neutral scores and scored-text counts for titles and descriptions.
+- `article_features.parquet`: selected eligible article versions, scores, and
+  inspectable story assignments underlying complete daily rows.
+- `metadata.json` and Parquet metadata: cutoff, rule version, grouping parameters,
+  pinned scorer and tokenizer revisions, preprocessing, and runtime versions.
+
+Story grouping uses normalized headline similarity of at least 0.92 within
+36 publication hours, separately for each asset/day. It estimates events and
+may miss paraphrases or merge similar reports. Future articles cannot regroup
+past daily rows. Financial tone is text-level sentiment, not asset-specific
+sentiment or a probability of rising prices. Missing descriptions remain null;
+only scored descriptions enter their averages. Texts are truncated to 512 tokens.
+
+Confirmed zero-article windows have zero counts and null age/sentiment averages.
+Incomplete, failed, or missing collection preserves all requested asset/date
+rows with null aggregates and a false coverage flag. Unknown retrieval times
+never enter predictive rows. Scoring errors abort output publication rather
+than masquerading as neutral sentiment. Builds finish computation and temporary
+serialization before replacing existing output files.
+
+Routine tests use deterministic sentiment adapters and no network. Run the
+separate real-model smoke test after installing the optional runtime:
+
+```bash
+RUN_FINBERT_SMOKE=1 python -m pytest -q tests/test_finbert_smoke.py
+```
+
+A small synthetic smoke check verifies positive profit-growth text and negative
+loss/bankruptcy text. It is a wiring check, not evidence of crypto sentiment
+accuracy or predictive value. Model training, baseline availability audits,
+walk-forward evaluation, scheduling, news decay, and dataset integration remain
+separate work.
+
 ## Tech Stack
 
 - Python
