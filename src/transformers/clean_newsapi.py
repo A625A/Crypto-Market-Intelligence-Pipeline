@@ -85,6 +85,20 @@ def _article(item, retrieved_at):
             'published_at': published_at, 'retrieved_at': retrieved_at}
 
 
+def _article_history(articles):
+    articles = articles.copy()
+    for key in ('published_at', 'retrieved_at'):
+        articles[key] = pd.to_datetime(articles[key], utc=True)
+    # Keep changes of observed text, including A -> B -> A reversions. Only
+    # consecutive unchanged observations are redundant, not every repeated hash.
+    articles = articles.sort_values(['article_id', 'symbol', 'retrieved_at', 'version_id'])
+    articles = articles.drop_duplicates(['article_id', 'symbol', 'retrieved_at', 'version_id'])
+    previous_version = articles.groupby(['article_id', 'symbol'])['version_id'].shift()
+    articles = articles.loc[articles.version_id.ne(previous_version)].copy()
+    articles['first_retrieved_at'] = articles.groupby(['article_id', 'symbol'])['retrieved_at'].transform('min')
+    return articles.reset_index(drop=True)
+
+
 def clean_newsapi(raw: dict) -> CleanNews:
     """Return immutable article versions, collection evidence and rejection reasons.
 
@@ -111,6 +125,10 @@ def clean_newsapi(raw: dict) -> CleanNews:
         response = collection.get('response') or {}
         if not isinstance(response, dict):
             raise ValueError('response must be an object')
+        article_items = response.get('articles')
+        if not isinstance(article_items, list):
+            article_items = []
+            evidence.update(status='incomplete', reason='missing or invalid articles array')
         if not legacy:
             missing_evidence = (not _text(evidence['run_id']) or not _text(evidence['query'])
                 or evidence['symbol'] not in SYMBOLS or pd.isna(received)
@@ -122,10 +140,10 @@ def clean_newsapi(raw: dict) -> CleanNews:
             if response.get('status') != 'ok':
                 evidence.update(status='failed', reason='NewsAPI response was not successful')
             total = response.get('totalResults')
-            if not isinstance(total, int) or isinstance(total, bool) or total < 0 or total > len(response.get('articles', [])):
+            if not isinstance(total, int) or isinstance(total, bool) or total < 0 or total > len(article_items):
                 if evidence['status'] != 'failed':
                     evidence.update(status='incomplete', reason='unverified or truncated result count')
-        for index, item in enumerate(response.get('articles', [])):
+        for index, item in enumerate(article_items):
             try:
                 row = _article(item, received)
             except ValueError as error:
@@ -143,12 +161,7 @@ def clean_newsapi(raw: dict) -> CleanNews:
                     rows.append(dict(row, symbol=symbol))
         if not legacy:
             scans.append(evidence)
-    articles = pd.DataFrame(rows, columns=ARTICLE_COLUMNS[:-1])
-    for key in ('published_at', 'retrieved_at'):
-        articles[key] = pd.to_datetime(articles[key], utc=True)
-    articles = articles.sort_values(['retrieved_at', 'article_id', 'version_id']).drop_duplicates(
-        ['article_id', 'version_id', 'symbol'])
-    articles['first_retrieved_at'] = articles.groupby(['article_id', 'symbol'])['retrieved_at'].transform('min')
+    articles = _article_history(pd.DataFrame(rows, columns=ARTICLE_COLUMNS[:-1]))
     scan_frame = pd.DataFrame(scans, columns=COLLECTION_COLUMNS)
     for key in ('window_start', 'window_end', 'retrieved_at'):
         scan_frame[key] = pd.to_datetime(scan_frame[key], utc=True)
@@ -162,15 +175,23 @@ def create_clean_newsapi(raw_paths, output_dir) -> CleanNews:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    records = []
+    records, exploratory = [], []
     for path in raw_paths:
         raw = json.loads(Path(path).read_text())
+        if not isinstance(raw, dict):
+            raise ValueError('NewsAPI input must be an object')
         if 'collections' in raw:
+            if not isinstance(raw['collections'], list):
+                raise ValueError('collections must be a list')
             records.extend(raw['collections'])
         else:
-            records.extend({'symbol': symbol, 'response': response}
-                           for symbol, response in raw.items() if symbol in SYMBOLS)
+            exploratory.append(clean_newsapi(raw))
     cleaned = clean_newsapi({'collections': records})
+    if exploratory:
+        parts = [cleaned, *exploratory]
+        cleaned.articles = _article_history(pd.concat([part.articles for part in parts], ignore_index=True))
+        cleaned.rejected = pd.concat([part.rejected for part in parts], ignore_index=True)
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(dir=output_dir) as temporary:

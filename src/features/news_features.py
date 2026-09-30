@@ -60,8 +60,16 @@ def build_news_features(cleaned: CleanNews, dates, *, scorer: ToneScorer, cutoff
         start = cutoff - pd.Timedelta(days=1)
         for symbol in SYMBOLS:
             scans = cleaned.collections
-            scans = scans.loc[(scans.symbol == symbol) & (scans.window_start == start)
-                              & (scans.window_end == cutoff) & (scans.retrieved_at <= cutoff)]
+            # Missing evidence must not disappear beside a successful scan.
+            # Unknown asset scope may affect every asset; unknown window bounds
+            # may affect any matching window in which the scan was observed.
+            asset_matches = scans.symbol.eq(symbol) | ~scans.symbol.isin(SYMBOLS)
+            window_matches = (scans.window_start.eq(start) | scans.window_start.isna()) & (
+                scans.window_end.eq(cutoff) | scans.window_end.isna())
+            no_window = scans.window_start.isna() & scans.window_end.isna()
+            window_matches &= ~no_window | scans.retrieved_at.isna() | scans.retrieved_at.gt(start)
+            observed = scans.retrieved_at.le(cutoff) | scans.retrieved_at.isna()
+            scans = scans.loc[asset_matches & window_matches & observed]
             complete = not scans.empty and scans.status.eq('success').all()
             articles = cleaned.articles
             articles = articles.loc[(articles.symbol == symbol)
@@ -74,7 +82,7 @@ def build_news_features(cleaned: CleanNews, dates, *, scorer: ToneScorer, cutoff
                 for label in TONE_LABELS:
                     articles[f'{field}_{label}'] = float('nan')
                 present = articles[field].notna()
-                if scorer is not None and present.any():
+                if complete and present.any():
                     scores = scorer.score(articles.loc[present, field].tolist())
                     if len(scores) != int(present.sum()):
                         raise ValueError('Invalid sentiment result count')

@@ -224,3 +224,70 @@ def test_all_missing_days_still_have_typed_features_and_article_schema():
     assert str(result.daily.news_article_count.dtype) == 'Int64'
     assert str(result.daily.news_title_positive_mean.dtype) == 'float64'
     assert {'article_id', 'retrieved_at', 'story_id', 'title_positive', 'date'}.issubset(result.articles.columns)
+
+
+@pytest.mark.parametrize('missing_field', ['retrieved_at', 'window_start', 'window_end', 'symbol', 'query', 'run_id'])
+def test_unknown_time_scan_cannot_be_hidden_by_another_successful_empty_scan(missing_field):
+    from src.features.news_features import build_news_features
+    incomplete = scan([article()])
+    incomplete.pop(missing_field)
+    events = [incomplete, scan([])]
+    result = build_news_features(clean_newsapi({'collections': events}), ['2026-09-29'], scorer=FixedTone())
+    row = result.daily.query("symbol == 'BTCUSDT'").iloc[0]
+    assert not row.news_coverage_complete
+    assert pd.isna(row.news_article_count)
+
+
+@pytest.mark.parametrize('bad_articles', ['missing', None, {}])
+def test_malformed_article_array_is_incomplete_not_confirmed_empty(bad_articles):
+    from src.features.news_features import build_news_features
+    event = scan([])
+    if bad_articles == 'missing':
+        event['response'].pop('articles')
+    else:
+        event['response']['articles'] = bad_articles
+    cleaned = clean_newsapi({'collections': [event]})
+    assert cleaned.collections.iloc[0].status == 'incomplete'
+    result = build_news_features(cleaned, ['2026-09-29'], scorer=FixedTone())
+    assert pd.isna(result.daily.query("symbol == 'BTCUSDT'").iloc[0].news_article_count)
+
+
+def test_text_reversion_selects_latest_observed_version_without_recounting():
+    from src.features.news_features import build_news_features
+    original = article()
+    revision = article(title='Bitcoin adoption declines sharply')
+    events = [scan([original], received='2026-09-29T20:00:00Z'),
+              scan([revision], received='2026-09-29T21:00:00Z'),
+              scan([original], received='2026-09-29T22:00:00Z')]
+    result = build_news_features(clean_newsapi({'collections': events}), ['2026-09-29'], scorer=FixedTone())
+    row = result.daily.query("symbol == 'BTCUSDT'").iloc[0]
+    assert row.news_article_count == 1
+    assert row.news_title_positive_mean == pytest.approx(0.7)
+    assert result.articles.iloc[0].retrieved_at == pd.Timestamp('2026-09-29T22:00:00Z')
+
+
+def test_incomplete_collection_does_not_require_scoring_unusable_articles():
+    from src.features.news_features import build_news_features
+    class UnavailableTone(FixedTone):
+        def score(self, texts): raise RuntimeError('no model available')
+    result = build_news_features(clean_newsapi({'collections': [scan([article()], status='failed')]}),
+                                ['2026-09-29'], scorer=UnavailableTone())
+    assert not result.daily.news_coverage_complete.any()
+    assert result.daily.news_title_positive_mean.isna().all()
+
+
+def test_mixed_legacy_and_recorded_files_keep_exploration_separate(tmp_path):
+    import json
+    from src.transformers.clean_newsapi import create_clean_newsapi
+    from src.features.news_features import build_news_features
+    legacy, recorded = tmp_path/'legacy.json', tmp_path/'recorded.json'
+    legacy.write_text(json.dumps({'BTCUSDT': {'status': 'ok', 'articles': [article()]}}))
+    recorded.write_text(json.dumps({'collections': [scan([])]}))
+    cleaned = create_clean_newsapi([legacy, recorded], tmp_path/'clean')
+    result = build_news_features(cleaned, ['2026-09-29'], scorer=FixedTone())
+    row = result.daily.query("symbol == 'BTCUSDT'").iloc[0]
+    assert row.news_coverage_complete
+    assert row.news_article_count == 0
+    assert len(cleaned.articles) == 1
+    assert cleaned.articles.retrieved_at.isna().all()
+    assert len(cleaned.collections) == 1
