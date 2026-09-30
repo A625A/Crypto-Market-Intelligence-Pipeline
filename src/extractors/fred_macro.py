@@ -127,8 +127,11 @@ def fetch_fred_series_observations(
         "file_type": "json",
         "observation_start": observation_start,
         "observation_end": observation_end,
-        "realtime_start": "1776-07-04",
-        "realtime_end": "9999-12-31",
+        # Bound vintage dates as well as observations: all-history requests can
+        # exceed FRED's JSON vintage-date limit for daily series. These series
+        # are released on or after their observation dates.
+        "realtime_start": observation_start,
+        "realtime_end": observation_end,
         "output_type": 4,
     }
 
@@ -139,29 +142,33 @@ def fetch_fred_series_observations(
         observation_end,
     )
 
-    response = requests.get(
-        FRED_API_URL,
-        params=params,
-        timeout=15,
-    )
+    try:
+        response = requests.get(FRED_API_URL, params=params, timeout=15)
+    except requests.RequestException as exc:
+        # Requests exceptions can contain the URL, including the API key.
+        raise RuntimeError(
+            f"FRED request failed for {series_id}: {type(exc).__name__}."
+        ) from None
 
     try:
         response.raise_for_status()
 
-    except requests.HTTPError as exc:
-        if response.status_code in {400, 401, 403}:
-            raise RuntimeError(
-                "FRED rejected the request. Check FRED_API_KEY and series_id."
-            ) from exc
-
+    except requests.HTTPError:
         if response.status_code == 429:
             retry_after = response.headers.get("Retry-After", "60")
             raise RuntimeError(
                 "FRED rate limit hit. Wait before retrying. "
                 f"Suggested wait: {retry_after} seconds."
-            ) from exc
+            ) from None
 
-        raise
+        try:
+            detail = str(response.json().get("error_message", "Request rejected."))
+        except ValueError:
+            detail = "Request rejected."
+        detail = detail.replace(api_key, "[REDACTED]")
+        raise RuntimeError(
+            f"FRED rejected {series_id} (HTTP {response.status_code}): {detail}"
+        ) from None
 
     data = response.json()
 
@@ -174,7 +181,9 @@ def fetch_fred_series_observations(
     return data
 
 
-if __name__ == "__main__":
+def extract_fred_macro(output_path: Path = RAW_PATH) -> dict:
+    """Save a complete initial-release dataset, preserving old data on failure."""
+    output_path = Path(output_path)
     observation_start, observation_end = get_two_year_window()
 
     all_data = {
@@ -185,6 +194,7 @@ if __name__ == "__main__":
         "series": {},
     }
 
+    failed_series = []
     for series_id, series_config in FRED_SERIES.items():
         try:
             data = fetch_fred_series_observations(
@@ -192,6 +202,9 @@ if __name__ == "__main__":
                 observation_start=observation_start,
                 observation_end=observation_end,
             )
+
+            if str(data.get("output_type")) != "4" or not data.get("observations"):
+                raise RuntimeError("Missing initial-release observations.")
 
             all_data["series"][series_id] = {
                 "feature_name": series_config["feature_name"],
@@ -201,15 +214,29 @@ if __name__ == "__main__":
 
             time.sleep(0.5)
 
-        except (requests.RequestException, RuntimeError):
-            logger.exception("Failed to fetch FRED series %s", series_id)
+        except RuntimeError as exc:
+            failed_series.append(series_id)
+            logger.error("Failed to fetch FRED series %s: %s", series_id, exc)
 
-    if not all_data["series"]:
-        raise RuntimeError("No FRED data was fetched successfully.")
+    if failed_series:
+        raise RuntimeError(
+            f"FRED extraction incomplete; failed series: {', '.join(failed_series)}. "
+            "Existing raw file was not changed."
+        )
 
-    RAW_PATH.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = output_path.with_suffix(output_path.suffix + ".tmp")
 
-    with open(RAW_PATH, "w", encoding="utf-8") as file:
+    with open(temporary_path, "w", encoding="utf-8") as file:
         json.dump(all_data, file, indent=2)
+    temporary_path.replace(output_path)
 
-    logger.info("Saved raw FRED macro data to %s", RAW_PATH)
+    logger.info("Saved raw FRED macro data to %s", output_path)
+    return all_data
+
+
+if __name__ == "__main__":
+    try:
+        extract_fred_macro()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from None

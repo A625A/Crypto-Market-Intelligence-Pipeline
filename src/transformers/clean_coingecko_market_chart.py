@@ -20,8 +20,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-RAW_PATH = Path("data/raw/coingecko_market_chart_raw.json")
-CLEAN_PATH = Path("data/processed/coingecko_market_chart_clean.csv")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RAW_PATH = PROJECT_ROOT / "data/raw/coingecko_market_chart_raw.json"
+CLEAN_PATH = PROJECT_ROOT / "data/processed/coingecko_market_chart_clean.csv"
 
 METRIC_COLUMNS = {
     "prices": "coingecko_price_usd",

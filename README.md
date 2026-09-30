@@ -267,9 +267,15 @@ perturbations, release-date leakage, raw FRED provenance, and Parquet output.
 └── README.md
 ```
 
-Run the commands above from the repository root. Extractors and feature builders
+Run the module commands above from the repository root. You can also run an
+individual script by its full path from an editor or another directory: default
+data paths are anchored to the project folder. Extractors and feature builders
 create their output directories under `data/` when needed; generated datasets
 are ignored by Git.
+
+FRED requests initial-release observations and release dates within the requested
+two-year window. If any required series fails, extraction exits with an error
+and leaves the previous raw file unchanged.
 
 Each source is run separately. There is no combined pipeline runner, trained
 model, backtester, or dashboard yet.

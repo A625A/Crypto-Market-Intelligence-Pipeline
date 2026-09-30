@@ -18,7 +18,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-RAW_PATH = Path("data/raw/fear_greed_raw.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RAW_PATH = PROJECT_ROOT / "data/raw/fear_greed_raw.json"
 
 
 def fetch_fear_greed(limit=730):

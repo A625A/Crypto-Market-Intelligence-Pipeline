@@ -21,8 +21,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-RAW_PATH = Path("data/raw/fred_macro_raw.json")
-CLEAN_PATH = Path("data/processed/fred_macro_clean.csv")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RAW_PATH = PROJECT_ROOT / "data/raw/fred_macro_raw.json"
+CLEAN_PATH = PROJECT_ROOT / "data/processed/fred_macro_clean.csv"
 
 
 def clean_fred_macro(

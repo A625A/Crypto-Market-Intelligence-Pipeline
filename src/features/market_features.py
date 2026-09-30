@@ -20,8 +20,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-INPUT_PATH = Path("data/processed/coingecko_market_chart_clean.csv")
-OUTPUT_PATH = Path("data/processed/features/market_features.parquet")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+INPUT_PATH = PROJECT_ROOT / "data/processed/coingecko_market_chart_clean.csv"
+OUTPUT_PATH = PROJECT_ROOT / "data/processed/features/market_features.parquet"
 
 
 def add_market_features(group: pd.DataFrame) -> pd.DataFrame:

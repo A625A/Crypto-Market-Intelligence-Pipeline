@@ -28,7 +28,7 @@ ENV_PATH = PROJECT_ROOT / ".env"
 COINGECKO_DEMO_BASE_URL = "https://api.coingecko.com/api/v3"
 COINGECKO_PRO_BASE_URL = "https://pro-api.coingecko.com/api/v3"
 
-RAW_PATH = Path("data/raw/coingecko_market_chart_raw.json")
+RAW_PATH = PROJECT_ROOT / "data/raw/coingecko_market_chart_raw.json"
 
 COINS = {
     "BTCUSDT": "bitcoin",

@@ -20,8 +20,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-INPUT_PATH = Path("data/processed/binance_ohlcv_clean.csv")
-OUTPUT_PATH = Path("data/processed/features/candle_features.parquet")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+INPUT_PATH = PROJECT_ROOT / "data/processed/binance_ohlcv_clean.csv"
+OUTPUT_PATH = PROJECT_ROOT / "data/processed/features/candle_features.parquet"
 
 
 def add_candle_features(group: pd.DataFrame) -> pd.DataFrame:

@@ -21,8 +21,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-RAW_PATH = Path("data/raw/fear_greed_raw.json")
-CLEAN_PATH = Path("data/processed/fear_greed_clean.csv")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RAW_PATH = PROJECT_ROOT / "data/raw/fear_greed_raw.json"
+CLEAN_PATH = PROJECT_ROOT / "data/processed/fear_greed_clean.csv"
 
 
 def clean_fear_greed(raw_path=RAW_PATH, output_path=CLEAN_PATH) -> pd.DataFrame:
