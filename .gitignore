@@ -22,3 +22,7 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+#
+CONTEXT.md
+AGENTS.md
