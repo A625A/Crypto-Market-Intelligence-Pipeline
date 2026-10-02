@@ -6,7 +6,7 @@ A Python data pipeline for cryptocurrency research
 
 It currently pulls market, macroeconomic, and sentiment data for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT`, cleans and validates the data, and combines feature tables into a daily modeling dataset.
 
-I started this project to get more experience working with multiple data sources and time-series data before moving into modeling and backtesting.
+I started this project to get more experience working with multiple data sources and time-series data before moving into modeling and backtesting
 
 ## Data Sources
 
