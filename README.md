@@ -110,6 +110,129 @@ data/processed/fear_greed_clean.csv
 data/processed/features/sentiment_features.parquet
 ```
 
+## NewsAPI snapshot collection
+
+The collector saves one immutable file per BTC/ETH/SOL scan under
+`data/raw/newsapi/<UTC-run-id>-<random-suffix>/<symbol>.json`. It preserves prior
+runs and leaves the legacy `data/raw/newsapi_raw.json` untouched. Set `NEWSAPI_KEY`
+in your environment or root `.env`; importing the module requires no key.
+
+**This command spends live API quota:**
+
+```bash
+python -m src.extractors.newsapi
+# Optional: lower the per-asset request allowance or change the publication lookback.
+python -m src.extractors.newsapi --lookback-days 3 --max-requests 5
+```
+
+Defaults: three publication days, English titles/descriptions, newest first,
+100 results per page, 30-second request timeout, and at most ten requests per
+asset including retries. Full asset names match directly; ticker matches require
+cryptocurrency context. Query text and version are saved. `--output-dir` changes
+the snapshot root; `--cutoff-hour` changes the default 23:00 UTC cutoff and must
+match the feature builder. No scheduler is installed.
+
+Publication bounds are fixed at run start: `from = run start - lookback days`,
+`to = run start`. These are search filters, not evidence of when delayed articles
+became available. API restrictions still apply. Do not subtract or add an assumed
+provider delay to manufacture historical retrieval times.
+
+Each file contains this structure (illustrative BTC successful empty scan;
+actual timestamps and IDs are generated during the run):
+
+```json
+{
+  "collections": [{
+    "run_id": "20261004T230000000000Z-<random-suffix>",
+    "symbol": "BTCUSDT",
+    "query": "bitcoin OR (BTC AND (crypto OR cryptocurrency OR blockchain OR bitcoin OR ethereum OR solana))",
+    "query_version": "direct-assets-v1",
+    "search_parameters": {
+      "q": "bitcoin OR (BTC AND (crypto OR cryptocurrency OR blockchain OR bitcoin OR ethereum OR solana))",
+      "language": "en",
+      "searchIn": "title,description",
+      "sortBy": "publishedAt",
+      "pageSize": 100,
+      "from": "2026-10-01T23:00:00+00:00",
+      "to": "2026-10-04T23:00:00+00:00"
+    },
+    "run_started_at": "2026-10-04T23:00:00+00:00",
+    "retrieved_at": "2026-10-04T23:00:02+00:00",
+    "window_start": "2026-10-04T23:00:00+00:00",
+    "window_end": "2026-10-05T23:00:00+00:00",
+    "status": "success",
+    "stop_reason": "complete",
+    "attempts": [{
+      "page": 1,
+      "attempt": 1,
+      "requested_at": "2026-10-04T23:00:00+00:00",
+      "responded_at": "2026-10-04T23:00:01+00:00",
+      "http_status": 200,
+      "total_results": 0,
+      "article_count": 0,
+      "error": null
+    }],
+    "response": {"status": "ok", "totalResults": 0, "articles": []}
+  }]
+}
+```
+
+`response` is a constructed combined response, not an untouched individual API
+page. Articles retain the received fields and order, once per received occurrence;
+repeated article observations are left for the cleaner to deduplicate. Attempt
+logs record original page totals/counts; error responses can add a sanitized
+`message`. A failed/skipped scan without a valid page has `response.status=error`,
+`totalResults=null`, and an empty article list. Its coverage is never successful.
+
+The collector retries connection failures, timeouts and HTTP 5xx twice (2s, 5s)
+within the request allowance. Other asset errors end that scan and allow the
+next asset to run. HTTP 401/403/429 or shared API-key/quota error codes stop all
+requests and save skipped outcomes for the remaining assets. Provider result
+limits, inconsistent totals, duplicate URLs, excess counts, early empty pages
+and exhausted budgets leave scans incomplete. No automatic interval splitting
+or quota-reset waiting occurs. Pagination checks audit the responses received;
+NewsAPI does not provide a frozen search index, and these checks cannot establish
+internet-wide coverage or detect every index change.
+
+Snapshot saving first durably checkpoints the payload, then records the UTC clock
+and writes the complete envelope. The final file is published with an atomic
+no-overwrite hard link. The private checkpoint is removed when saving exits, including on a handled
+write failure; an abrupt process interruption may leave private files behind.
+`retrieved_at` means payload preservation, not the later envelope publication.
+Private `.pending-*` files are not inputs to the cleaner. Write errors stop the
+run and can discard the current unpublished scan; previously completed asset
+files remain. A process interruption can lose
+the current unsaved scan, which remains missing coverage. Local filesystem
+support for file/directory syncing and hard links is required.
+
+Each outcome belongs to the first cutoff at or after payload preservation. A
+23:00 launch normally finishes in the following day's availability window.
+Repeated runs in the same window do not erase failed scans: downstream coverage
+can remain incomplete even after a later success. The command exits 0 only when
+all collector scans succeed, otherwise 1; cleaner validation may still reject
+individual articles from successful scans.
+
+Supply **all completed snapshots** to the existing cleaner, including failures.
+This local-only example discovers only final asset files, excluding private
+checkpoints, and does not call NewsAPI:
+
+```python
+from pathlib import Path
+from src.transformers.clean_newsapi import create_clean_newsapi
+
+snapshots = sorted(Path("data/raw/newsapi").glob("*/*USDT.json"))
+if not snapshots:
+    raise FileNotFoundError("No NewsAPI snapshots collected yet")
+create_clean_newsapi(snapshots, "data/processed/newsapi")
+```
+
+The existing daily feature command then reads that cleaned history. Routine
+collector tests make no network calls:
+
+```bash
+python -m pytest -q tests/test_newsapi_extractor.py tests/test_newsapi_pipeline.py
+```
+
 ## NewsAPI cleanup and daily features
 
 The NewsAPI transformation produces standalone daily features for BTCUSDT,

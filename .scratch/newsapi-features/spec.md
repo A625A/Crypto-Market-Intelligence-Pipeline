@@ -1,6 +1,6 @@
 # NewsAPI daily features
 
-Status: focused cleanup and daily-feature implementation approved; wider research remains out of scope.
+Status: cleanup, daily features and the real snapshot collector are implemented; wider research remains out of scope.
 
 ## Purpose
 
@@ -114,7 +114,7 @@ provenance and coverage inputs; it must not invent them for legacy snapshots.
 
 - Detailed relevance rules, language, exact-duplicate identity, and simple
   story-grouping thresholds to document during implementation.
-- Collector interval coverage and request-budget management (outside the ticket).
+- Collector interval coverage and request-budget management are settled in ticket 02 below.
 - Later rolling lookbacks and candidate decay strengths.
 - Evaluation metrics, walk-forward windows,
   tuning protocol, and the evidence required to claim improvement.
@@ -134,3 +134,53 @@ small injected sentiment-scoring interface permits the real local FinBERT
 adapter and deterministic external-model test adapters. File commands wrap
 these interfaces, use repository-root defaults, and produce Parquet artifacts.
 The pre-implementation review base is b7180877d1b52015cca5c750d7df74266854a5dc.
+
+## Real snapshot collector (ticket 02, implemented)
+
+The follow-up collector implements the existing collections contract without
+changing cleaner, feature, or modeling behavior. Approved decisions:
+
+- Save an immutable JSON per asset scan, grouped under a unique UTC run ID with
+  a random suffix. Repeated executions never reuse an existing run directory.
+- Search the previous three publication days by default, configurable. Fix
+  `from` and `to` at run start across assets, pages and retries. These bounds
+  describe the publication search, not recorded availability or daily coverage.
+- Search English titles and descriptions. Match a full asset name or a ticker
+  qualified by crypto, cryptocurrency, blockchain, bitcoin, ethereum or solana.
+  Preserve the executed query and query version; the cleaner decides relevance.
+- Allow at most ten HTTP requests per asset, including retries; a lower budget
+  is configurable. Retain the existing 30-second timeout. Disable redirects so
+  they cannot generate unrecorded HTTP attempts.
+- Retry connection failures, timeouts and HTTP 5xx up to twice per page, waiting
+  two and five seconds, within the same request allowance.
+- Shared authentication errors, rate limiting and quota exhaustion stop all
+  requests. Save explicit skipped outcomes for assets not attempted. Other
+  asset failures do not prevent subsequent assets from being attempted.
+- Store combined article data once and compact attempt logs: page, attempt,
+  request/response timestamps, HTTP status, reported total, article count and
+  sanitized error details. Do not retain credentials or duplicate page bodies.
+- Require consistent nonnegative integer result totals and distinct article
+  URLs before claiming pagination completed. Invalid pages, changed totals,
+  duplicate results, count mismatches, early empty pages, provider limits and
+  exhausted request allowances cannot become successful empty scans. Preserve
+  downloaded article evidence. Do not split publication intervals automatically.
+- Record `retrieved_at` after a private payload checkpoint has been flushed and
+  synced to disk. Then publish the complete envelope atomically without replacing
+  a previous asset file. The timestamp represents payload preservation, not
+  final envelope publication; a later formatting/publication step does not
+  backdate the payload's actual preservation. Pending files are not cleaner inputs.
+- Assign each saved outcome to the first configured cutoff at or after its
+  actual payload preservation, with the preceding cutoff as `window_start`.
+  The default is 23:00 UTC. Keep the existing 23:00 start-time convention: a
+  normal run finishing afterward contributes to the following cutoff's window.
+- A scan with valid completed pagination is `success`; a partially retrieved or
+  malformed scan is `incomplete`; an unsuccessful scan with no usable page or
+  an asset skipped after a global stop is `failed`. Downstream validation may
+  further reduce coverage when it rejects article data.
+
+Tests use fake HTTP, controlled clocks, temporary directories and deterministic
+sentiment. Live quota usage requires separate explicit approval. No scheduler,
+modeling integration, commits or pushes are authorized by this implementation.
+The existing feature builder retains all failed scan evidence; a later success
+in the same window does not automatically repair coverage. A disk write failure
+aborts the run while leaving previously published asset snapshots intact.
