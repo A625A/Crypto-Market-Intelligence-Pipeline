@@ -1,12 +1,60 @@
+<div align="center">
+
 # Crypto Market Intelligence Pipeline
 
-> **Work in progress**
+**Leakage-aware, multi-source data pipeline for cryptocurrency research and next-day market modeling.**
 
-A Python data pipeline for cryptocurrency research
+BTC · ETH · SOL — market data, macroeconomics, sentiment, and auditable news features built into a daily modeling dataset.
 
-It currently pulls market, macroeconomic, and sentiment data for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT`, cleans and validates the data, and combines feature tables into a daily modeling dataset.
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-data%20processing-150458?logo=pandas&logoColor=white)
+![Parquet](https://img.shields.io/badge/Parquet-feature%20tables-4B8BBE)
+![Pytest](https://img.shields.io/badge/Pytest-tested-0A9EDC?logo=pytest&logoColor=white)
+![FinBERT](https://img.shields.io/badge/FinBERT-news%20sentiment-FFD21E)
+![Status](https://img.shields.io/badge/status-work%20in%20progress-6B7280)
 
-I started this project to get more experience working with multiple data sources and time-series data before moving into modeling and backtesting
+</div>
+
+## Portfolio Snapshot
+
+This project focuses on the part of market modeling that is easy to get wrong: **data timing, provenance, source coverage, and look-ahead leakage**.
+
+| Capability | Status |
+| --- | --- |
+| Binance OHLCV pipeline | Implemented |
+| CoinGecko market features | Implemented |
+| FRED macro features with release-aware timing | Implemented |
+| Fear & Greed sentiment | Implemented |
+| Combined daily modeling dataset | Implemented |
+| NewsAPI immutable snapshots | Implemented |
+| FinBERT daily news features | Implemented |
+| Predictive models / walk-forward validation | Next |
+| Backtesting / dashboard | Next |
+
+The current repository is intentionally a **data and feature-engineering project first**. Model training, walk-forward evaluation, backtesting, and a dashboard are the next stages rather than claims presented as finished work.
+
+## Pipeline at a Glance
+
+```mermaid
+flowchart LR
+    B[Binance OHLCV] --> CLEAN[Cleaning & validation]
+    C[CoinGecko] --> CLEAN
+    F[FRED macro] --> CLEAN
+    G[Fear & Greed] --> CLEAN
+    N[NewsAPI snapshots] --> NEWS[Eligibility + FinBERT features]
+    CLEAN --> FEAT[Feature engineering]
+    NEWS --> FEAT
+    FEAT --> DATA[(Daily modeling dataset)]
+    DATA --> NEXT[Walk-forward modeling & backtesting]
+```
+
+### Design priorities
+
+- **Time-aware features:** macro releases use historical availability rather than revised values.
+- **Auditable news:** collection snapshots preserve retrieval evidence instead of inventing unavailable history.
+- **Source isolation:** BTC, ETH, and SOL remain asset-scoped through joins and target construction.
+- **Fail-closed data checks:** duplicate keys, invalid dates, stale macro provenance, and conflicting feature columns are rejected.
+- **Reproducible feature outputs:** structured Parquet tables and metadata keep modeling inputs inspectable.
 
 ## Data Sources
 
