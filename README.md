@@ -31,7 +31,7 @@ This project focuses on the part of market modeling that is easy to get wrong: *
 | Predictive models / walk-forward validation | Next |
 | Backtesting / dashboard | Next |
 
-The current repository is intentionally a **data and feature-engineering project first**. Model training, walk-forward evaluation, backtesting, and a dashboard are the next stages rather than claims presented as finished work.
+The current repository is intentionally a **data and feature-engineering project first**. Model training, walk-forward evaluation, backtesting, and a dashboard are the next stages rather than claims presented as finished work
 
 ## Pipeline at a Glance
 
