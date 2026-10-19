@@ -54,7 +54,7 @@ flowchart LR
 - **Auditable news:** collection snapshots preserve retrieval evidence instead of inventing unavailable history.
 - **Source isolation:** BTC, ETH, and SOL remain asset-scoped through joins and target construction.
 - **Fail-closed data checks:** duplicate keys, invalid dates, stale macro provenance, and conflicting feature columns are rejected.
-- **Reproducible feature outputs:** structured Parquet tables and metadata keep modeling inputs inspectable.
+- **Reproducible feature outputs:** structured Parquet tables and metadata keep modeling inputs inspectable
 
 ## Data Sources
 
